@@ -584,7 +584,9 @@ async function start() {
       bannerText='LAST LAP'+(display.lap!==null?' · L'+display.lap:'')+(usesBestSectorRef?' · REF BEST SEC':'');
     }else if(display.mode==='invalid'){
       bannerKind='invalid';
-      bannerText='INVALID · NOT RECORDED';
+      bannerText=laps.status==='running'&&display.reason
+        ?'LAST LAP INVALID · '+display.reason
+        :'INVALID · NOT RECORDED';
     }else if(usesBestSectorRef){
       bannerKind='ref';
       bannerText='DELTA VS BEST SEC';

@@ -26,6 +26,7 @@ export type StoredLapRecords={
 export type SectorDisplay={
   mode:'waiting'|'current'|'last-lap'|'invalid';
   lap:number|null;
+  reason:string|null;
   activeSector:SectorIndex|null;
   currentSectorTime:number|null;
   sectors:SectorTuple;
@@ -33,6 +34,8 @@ export type SectorDisplay={
   deltas:SectorTuple;
   refKinds:[SectorRefKind,SectorRefKind,SectorRefKind];
 };
+
+const deltaMs=(delta:number)=>Math.round(delta*1000)||0;
 
 export function lapTime(seconds:number|null){
   if(seconds===null)return '—';
@@ -47,7 +50,7 @@ export function sectorTime(seconds:number|null){
 }
 export function sectorDelta(delta:number|null){
   if(delta===null)return '';
-  const ms=Math.round(delta*1000);
+  const ms=deltaMs(delta);
   if(ms===0)return '0.000';
   return (ms>0?'+':'-')+(Math.abs(ms)/1000).toFixed(3);
 }
@@ -59,15 +62,24 @@ function parseSectorNumbers(raw:unknown,expectedSum?:number):SectorNumbers|null{
   return [raw[0],raw[1],raw[2]];
 }
 
-type LastLapHold={
-  lap:number;
-  seconds:number;
-  sectors:SectorNumbers;
-  ratings:[SectorRating,SectorRating,SectorRating];
-  deltas:SectorTuple;
-  refKinds:[SectorRefKind,SectorRefKind,SectorRefKind];
-  until:number;
-};
+type LapRecapHold=
+  |{
+    kind:'last-lap';
+    lap:number;
+    seconds:number;
+    sectors:SectorNumbers;
+    ratings:[SectorRating,SectorRating,SectorRating];
+    deltas:SectorTuple;
+    refKinds:[SectorRefKind,SectorRefKind,SectorRefKind];
+    until:number;
+  }
+  |{
+    kind:'invalid';
+    lap:number;
+    reason:string;
+    sectors:SectorTuple;
+    until:number;
+  };
 
 export class LapTiming {
   count=0;
@@ -95,7 +107,7 @@ export class LapTiming {
   private distance=0;
   private peak=0;
   private arc=0;
-  private lastLapHold:LastLapHold|null=null;
+  private lastLapHold:LapRecapHold|null=null;
 
   get current(){return this.status==='running'?this.elapsed-this.began:null;}
   get currentSector():SectorIndex{return this.sectorIndex;}
@@ -105,26 +117,44 @@ export class LapTiming {
     return a!==null&&b!==null&&c!==null?a+b+c:null;
   }
   get showingLastLap(){
-    return this.status==='running'&&this.lastLapHold!==null&&this.elapsed<this.lastLapHold.until;
+    return this.status==='running'&&this.lastLapHold?.kind==='last-lap'&&this.elapsed<this.lastLapHold.until;
+  }
+  get showingInvalidRecap(){
+    return this.status==='running'&&this.lastLapHold?.kind==='invalid'&&this.elapsed<this.lastLapHold.until;
   }
 
   sectorDisplay():SectorDisplay{
-    if(this.showingLastLap&&this.lastLapHold){
+    if(this.status==='running'&&this.lastLapHold&&this.elapsed<this.lastLapHold.until){
+      if(this.lastLapHold.kind==='last-lap'){
+        return {
+          mode:'last-lap',
+          lap:this.lastLapHold.lap,
+          reason:null,
+          activeSector:null,
+          currentSectorTime:null,
+          sectors:[...this.lastLapHold.sectors],
+          ratings:[...this.lastLapHold.ratings],
+          deltas:[...this.lastLapHold.deltas],
+          refKinds:[...this.lastLapHold.refKinds],
+        };
+      }
       return {
-        mode:'last-lap',
+        mode:'invalid',
         lap:this.lastLapHold.lap,
+        reason:this.lastLapHold.reason,
         activeSector:null,
         currentSectorTime:null,
         sectors:[...this.lastLapHold.sectors],
-        ratings:[...this.lastLapHold.ratings],
-        deltas:[...this.lastLapHold.deltas],
-        refKinds:[...this.lastLapHold.refKinds],
+        ratings:['invalid','invalid','invalid'],
+        deltas:[null,null,null],
+        refKinds:[null,null,null],
       };
     }
     if(this.status==='invalid'){
       return {
         mode:'invalid',
         lap:this.count+1,
+        reason:this.reason||null,
         activeSector:null,
         currentSectorTime:null,
         sectors:[...this.sectors],
@@ -137,6 +167,7 @@ export class LapTiming {
       return {
         mode:'current',
         lap:this.count+1,
+        reason:null,
         activeSector:this.sectorIndex,
         currentSectorTime:this.currentSectorTime,
         sectors:[...this.sectors],
@@ -148,6 +179,7 @@ export class LapTiming {
     return {
       mode:'waiting',
       lap:null,
+      reason:null,
       activeSector:null,
       currentSectorTime:null,
       sectors:[null,null,null],
@@ -260,9 +292,11 @@ export class LapTiming {
     if(ref===null)return {rating:'baseline',delta:null,refKind:null};
     const refKind:SectorRefKind=bestLapSector!==null?'bestLap':'bestSector';
     const delta=seconds-ref;
-    if(bestSector!==null&&seconds<bestSector-1e-6)return {rating:'purple',delta,refKind};
-    if(bestLapSector!==null&&seconds<bestLapSector-1e-6)return {rating:'green',delta,refKind};
-    if(Math.abs(delta)<.0005)return {rating:'equal',delta:0,refKind};
+    const ms=deltaMs(delta);
+    const bestSectorMs=bestSector!==null?deltaMs(seconds-bestSector):null;
+    if(bestSectorMs!==null&&bestSectorMs<0)return {rating:'purple',delta,refKind};
+    if(bestLapSector!==null&&ms<0)return {rating:'green',delta,refKind};
+    if(ms===0)return {rating:'equal',delta:0,refKind};
     return {rating:'yellow',delta,refKind};
   }
 
@@ -299,8 +333,15 @@ export class LapTiming {
         const a=(old.x-g.p.x)*g.forward.x+(old.z-g.p.z)*g.forward.z;
         const b=x*g.forward.x+z*g.forward.z;
         if(!(a<0&&b>=0)&&!(a>0&&b<=0))continue;
-        if(!loc.onRoad||Math.abs(x*g.right.x+z*g.right.z)>roadHalfWidth+.30)continue;
+        if(!loc.onRoad)continue;
+        const withinGate=Math.abs(x*g.right.x+z*g.right.z)<=roadHalfWidth+.30;
         const forward=b>a&&heading.dot(g.forward)>.25&&signedSpeed>0;
+        if(!withinGate){
+          if(this.status==='running'&&forward&&(i===this.nextGate||(i===0&&this.nextGate===gates.length))){
+            this.invalidate('Checkpoint missed');
+          }
+          continue;
+        }
         if(!forward){this.invalidate('Wrong direction');continue;}
         if(i===0){
           const when=this.elapsed-dt+dt*(-a/(b-a));
@@ -328,8 +369,17 @@ export class LapTiming {
             this.history.unshift({lap:this.count,seconds,sectors:[...lapSectors]});
             if(this.history.length>6)this.history.pop();
             this.lastLapHold={
+              kind:'last-lap',
               lap:this.count,seconds,sectors:[...lapSectors],
               ratings:lapRatings,deltas:lapDeltas,refKinds:lapRefKinds,
+              until:when+lastLapHoldSeconds,
+            };
+          }else if(this.status==='invalid'){
+            this.lastLapHold={
+              kind:'invalid',
+              lap:this.count+1,
+              reason:this.reason||'Invalid lap',
+              sectors:[...this.sectors],
               until:when+lastLapHoldSeconds,
             };
           }else{

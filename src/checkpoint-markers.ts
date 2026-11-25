@@ -38,19 +38,20 @@ function sectorPlateMaterial(label:string){
   let map:T.CanvasTexture|undefined;
   if(typeof document!=='undefined'){
     const canvas=document.createElement('canvas');
-    canvas.width=128;canvas.height=80;
+    canvas.width=256;canvas.height=160;
     const ctx=canvas.getContext('2d')!;
-    ctx.fillStyle='#202930';ctx.fillRect(0,0,128,80);
-    ctx.fillStyle='#c86b3a';ctx.fillRect(0,0,12,80);
-    ctx.fillStyle='#ebe9de';
-    ctx.font='bold 46px Arial, sans-serif';
+    ctx.fillStyle='#ebe9de';ctx.fillRect(0,0,256,160);
+    ctx.fillStyle='#c86b3a';ctx.fillRect(0,0,24,160);
+    ctx.strokeStyle='#202930';ctx.lineWidth=8;ctx.strokeRect(4,4,248,152);
+    ctx.fillStyle='#182026';
+    ctx.font='900 106px Arial, sans-serif';
     ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(label,70,42);
+    ctx.fillText(label,140,84);
     map=new T.CanvasTexture(canvas);
     map.colorSpace=T.SRGBColorSpace;
-    map.anisotropy=4;
+    map.anisotropy=8;
   }
-  return new T.MeshStandardMaterial(map?{map,color:0xffffff,roughness:.78}:{color:0x202930,roughness:.78});
+  return new T.MeshStandardMaterial(map?{map,color:0xffffff,roughness:.72}:{color:0xebe9de,roughness:.72});
 }
 
 // Low-contrast road timing loops and compact rail-side timing posts mark the 19
@@ -78,8 +79,8 @@ export function placeCheckpointMarkers(scene:T.Scene,wear?:RoadWear){
   const housingGeo=new T.BoxGeometry(.14,.24,.075);
   const bandGeo=new T.PlaneGeometry(.115,.068);
   const tickGeo=new T.PlaneGeometry(.115,.032);
-  const plateBackGeo=new T.BoxGeometry(.22,.14,.024);
-  const plateFaceGeo=new T.PlaneGeometry(.20,.12);
+  const plateBackGeo=new T.BoxGeometry(.48,.30,.028);
+  const plateFaceGeo=new T.PlaneGeometry(.45,.27);
 
   checkpointGates.forEach((gate,i)=>{
     const gateNumber=i+1;
@@ -123,8 +124,8 @@ export function placeCheckpointMarkers(scene:T.Scene,wear?:RoadWear){
       part(bandGeo,bandMat,1.11,.055);
       part(tickGeo,tickMat,1.035,.055);
       if(boundaryIdx!==-1){
-        part(plateBackGeo,housingMat,1.255,.015);
-        part(plateFaceGeo,sectorPlateMats[boundaryIdx],1.255,.029);
+        part(plateBackGeo,housingMat,1.33,.015);
+        part(plateFaceGeo,sectorPlateMats[boundaryIdx],1.33,.031);
       }
     }
     markers.push({index:gateNumber,distance:d,lateralOffset:postOffset,sectorEnd,position:gate.p.toArray()});

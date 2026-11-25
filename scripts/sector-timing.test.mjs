@@ -322,3 +322,170 @@ test('Persistence round-trip, vehicle isolation, legacy compatibility, layout ve
   assert.equal(sectorDelta(-0.214),'-0.214');
   assert.equal(sectorDelta(0.38),'+0.380');
 });
+
+test('Immediate Checkpoint missed feedback at G01 (6.05 m) and Track limits at 6.35 m while preserving ±5.90 m gate tolerance',()=>{
+  const g1Arc=startDistance+courseLength/20;
+  const steerTo=(d,targetArc,targetLat,speed=35)=>{
+    const steps=Math.max(1,Math.ceil((targetArc-d.arc)/(speed*dt)));
+    for(let i=1;i<=steps;i++)stepDriver(d,speed,targetLat*(i/steps));
+  };
+
+  // Crossing G01 forward at 6.05 m (within ±6.20 m track limits, outside ±5.90 m gate width)
+  // must invalidate immediately at G01, well before G02.
+  const immediate=makeDriver();
+  driveTo(immediate,g1Arc-15,35);
+  assert.equal(immediate.lap.status,'running');
+  steerTo(immediate,g1Arc-1,6.05,35);
+  while(immediate.arc<g1Arc+1)stepDriver(immediate,35,6.05);
+  assert.equal(immediate.lap.status,'invalid');
+  assert.equal(immediate.lap.reason,'Checkpoint missed');
+  assert.ok(immediate.arc<g1Arc+10); // invalidated right at G01, not 251 m later at G02
+
+  // Crossing G01 at 6.35 m (outside ±6.20 m track limits) still triggers Track limits.
+  const offTrack=makeDriver();
+  driveTo(offTrack,g1Arc-15,35);
+  steerTo(offTrack,g1Arc-1,6.35,35);
+  assert.equal(offTrack.lap.status,'invalid');
+  assert.equal(offTrack.lap.reason,'Track limits');
+
+  // Crossing G01 at 5.80 m (inside ±5.90 m checkpoint tolerance) remains valid.
+  const inside=makeDriver();
+  driveTo(inside,g1Arc-15,35);
+  steerTo(inside,g1Arc-1,5.80,35);
+  while(inside.arc<g1Arc+1)stepDriver(inside,35,5.80);
+  assert.equal(inside.lap.status,'running');
+  assert.equal(inside.lap.reason,'');
+});
+
+test('Invalid G19 crossing invalidates immediately, starts next lap timing at finish, and holds invalid recap for 3 seconds without updating records',()=>{
+  const d=makeDriver();
+  // Lap 1 valid baseline at 40 m/s
+  driveSectorLap(d,0,[40,40,40]);
+  const savedCount=d.lap.count;
+  const savedBest=d.lap.best;
+  const savedLast=d.lap.last;
+  const savedBestSectors=[...d.lap.bestSectors];
+  const savedBestLapSectors=[...d.lap.bestLapSectors];
+  const savedHistory=JSON.stringify(d.lap.history);
+
+  // Lap 2: faster S1 & S2 (provisional purple), then cross G19 at 6.05 m lateral offset
+  const base2=startDistance+courseLength;
+  const g19Lap2=base2+courseLength*19/20;
+  driveTo(d,base2+s1Len+2,55);
+  assert.equal(d.lap.sectorRatings[0],'purple');
+  driveTo(d,base2+s1Len+s2Len+2,55);
+  assert.equal(d.lap.sectorRatings[1],'purple');
+  driveTo(d,g19Lap2-15,45);
+  for(let i=1;i<=35;i++)stepDriver(d,45,6.05*(i/35));
+  while(d.arc<g19Lap2+1)stepDriver(d,45,6.05);
+  assert.equal(d.lap.status,'invalid');
+  assert.equal(d.lap.reason,'Checkpoint missed');
+
+  // Return smoothly inside track/gate width and cross finish line (G00) validly
+  for(let i=34;i>=0;i--)stepDriver(d,45,6.05*(i/35));
+  driveTo(d,base2+courseLength+0.5,45);
+  assert.equal(d.lap.count,savedCount);
+  assert.equal(d.lap.best,savedBest);
+  assert.equal(d.lap.last,savedLast);
+  assert.deepEqual(d.lap.bestSectors,savedBestSectors);
+  assert.deepEqual(d.lap.bestLapSectors,savedBestLapSectors);
+  assert.equal(JSON.stringify(d.lap.history),savedHistory);
+
+  // Next lap is already running and timing normally while recap holds the invalid reason
+  assert.equal(d.lap.status,'running');
+  assert.equal(d.lap.currentSector,0);
+  assert.ok(d.lap.current>0);
+  assert.ok(d.lap.currentSectorTime>0);
+  assert.equal(d.lap.showingLastLap,false);
+  assert.equal(d.lap.showingInvalidRecap,true);
+  const recap=d.lap.sectorDisplay();
+  assert.equal(recap.mode,'invalid');
+  assert.equal(recap.reason,'Checkpoint missed');
+  assert.deepEqual(recap.ratings,['invalid','invalid','invalid']);
+  assert.ok(recap.sectors[0]!==null&&recap.sectors[1]!==null);
+  assert.equal(recap.sectors[2],null);
+
+  // At 2.0 s (< 3 s): invalid recap still shown while new lap clock advances
+  const t0=d.lap.current;
+  for(let i=0;i<240;i++)stepDriver(d,30);
+  assert.ok(d.lap.current>t0+1.9);
+  assert.equal(d.lap.showingInvalidRecap,true);
+  assert.equal(d.lap.sectorDisplay().mode,'invalid');
+  assert.equal(d.lap.sectorDisplay().reason,'Checkpoint missed');
+
+  // After 3.0 s: transitions automatically to live current-lap sector display
+  for(let i=0;i<144;i++)stepDriver(d,30);
+  assert.equal(d.lap.showingInvalidRecap,false);
+  const live=d.lap.sectorDisplay();
+  assert.equal(live.mode,'current');
+  assert.equal(live.reason,null);
+  assert.equal(live.activeSector,0);
+  assert.ok(live.currentSectorTime>lastLapHoldSeconds);
+
+  // Reset / cancel during the 3-second invalid recap clears it immediately
+  const d2=makeDriver();
+  driveTo(d2,g19Arc-15,40);
+  for(let i=1;i<=35;i++)stepDriver(d2,40,6.05*(i/35));
+  while(d2.arc<g19Arc+1)stepDriver(d2,40,6.05);
+  for(let i=34;i>=0;i--)stepDriver(d2,40,6.05*(i/35));
+  driveTo(d2,startDistance+courseLength+0.5,40);
+  assert.equal(d2.lap.showingInvalidRecap,true);
+  d2.lap.cancel();
+  assert.equal(d2.lap.showingInvalidRecap,false);
+  assert.equal(d2.lap.sectorDisplay().mode,'waiting');
+});
+
+test('Sub-millisecond sector deltas agree with millisecond rating and preserve full precision',()=>{
+  // Measure deterministic S1 duration at 40 m/s
+  const probe=makeDriver();
+  driveTo(probe,g7Arc+2,40);
+  const s1Actual=probe.lap.sectors[0];
+  assert.ok(s1Actual!==null);
+
+  const runWithRefs=(bestSectorS1,bestLapS1)=>{
+    const lap=new LapTiming();
+    const s2=50,s3=50;
+    lap.restore({
+      count:1,
+      best:bestLapS1+s2+s3,
+      history:[{lap:1,seconds:bestLapS1+s2+s3,sectors:[bestLapS1,s2,s3]}],
+      sectorLayout:SECTOR_LAYOUT_ID,
+      bestSectors:[bestSectorS1,s2,s3],
+      bestLapSectors:[bestLapS1,s2,s3],
+    });
+    const d=makeDriver(lap);
+    driveTo(d,g7Arc+2,40);
+    return d;
+  };
+
+  // 0.0002 s faster than equal bestSector & bestLapSector -> rounds to 0.000 -> equal (not purple/green)
+  const fasterSubMs=runWithRefs(s1Actual+0.0002,s1Actual+0.0002);
+  assert.equal(fasterSubMs.lap.sectorRatings[0],'equal');
+  assert.equal(sectorDelta(fasterSubMs.lap.sectorDeltas[0]),'0.000');
+  // Finishing the lap still preserves full precision in bestSectors[0]
+  driveTo(fasterSubMs,startDistance+courseLength+1,40);
+  assert.equal(fasterSubMs.lap.bestSectors[0],s1Actual);
+
+  // 0.0002 s slower than bestSector & bestLapSector -> rounds to 0.000 -> equal
+  const slowerSubMs=runWithRefs(s1Actual-0.0002,s1Actual-0.0002);
+  assert.equal(slowerSubMs.lap.sectorRatings[0],'equal');
+  assert.equal(sectorDelta(slowerSubMs.lap.sectorDeltas[0]),'0.000');
+
+  // 0.0002 s faster than bestSector (rounds to 0 ms) while 1.000 s faster than bestLapSector -> green (not purple)
+  const subMsVsPersonalBest=runWithRefs(s1Actual+0.0002,s1Actual+1.0);
+  assert.equal(subMsVsPersonalBest.lap.sectorRatings[0],'green');
+  assert.equal(sectorDelta(subMsVsPersonalBest.lap.sectorDeltas[0]),'-1.000');
+
+  // 0.0006 s faster than bestSector -> purple; delta reflects respective reference
+  const fasterFullMsSplit=runWithRefs(s1Actual+0.0006,s1Actual+1.0);
+  assert.equal(fasterFullMsSplit.lap.sectorRatings[0],'purple');
+  assert.equal(sectorDelta(fasterFullMsSplit.lap.sectorDeltas[0]),'-1.000');
+  const fasterFullMsDirect=runWithRefs(s1Actual+0.0006,s1Actual+0.0006);
+  assert.equal(fasterFullMsDirect.lap.sectorRatings[0],'purple');
+  assert.equal(sectorDelta(fasterFullMsDirect.lap.sectorDeltas[0]),'-0.001');
+
+  // 0.0006 s slower than reference -> rounds to +0.001 -> yellow
+  const slowerFullMs=runWithRefs(s1Actual-0.0006,s1Actual-0.0006);
+  assert.equal(slowerFullMs.lap.sectorRatings[0],'yellow');
+  assert.equal(sectorDelta(slowerFullMs.lap.sectorDeltas[0]),'+0.001');
+});
