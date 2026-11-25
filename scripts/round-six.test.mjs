@@ -3,8 +3,9 @@ import {test} from 'node:test';
 import {readFileSync} from 'node:fs';
 import * as T from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {LapTiming,lapTime,startDistance} from '../src/lap-timing.ts';
-import {courseLength,sampleAt} from '../src/track.ts';
+import {LapTiming,checkpointGates,lapTime,startDistance} from '../src/lap-timing.ts';
+import {placeCheckpointMarkers} from '../src/checkpoint-markers.ts';
+import {courseLength,railOffset,sampleAt} from '../src/track.ts';
 import {WiperMotor,buildWiper} from '../src/wiper.ts';
 
 const dt=1/120;
@@ -44,6 +45,23 @@ test('Track cuts, missed checkpoint, large position jumps and sustained reversin
   for(let i=0;i<80;i++)tick(s,30,Math.min(6.09,i*.18));
   for(let i=0;i<35;i++)tick(s,30,Math.max(0,6.09-i*.18));
   until(s,startDistance+courseLength+2);assert.equal(s.lap.count,0);
+});
+test('Checkpoint markers align with the 19 intermediate timing gates and stay clear of the rails',()=>{
+  assert.equal(checkpointGates.length,19);
+  const scene=new T.Scene();
+  const group=placeCheckpointMarkers(scene);
+  const markers=group.userData.markers;
+  assert.equal(markers.length,19);
+  markers.forEach((m,i)=>{
+    const expected=sampleAt(startDistance+courseLength*(i+1)/20);
+    assert.ok(Math.abs(m.distance-expected.distance)<1e-6);
+    assert.ok(m.lateralOffset>railOffset+.10&&m.lateralOffset<7.55);
+  });
+  const loops=group.getObjectByName('Checkpoint timing loops');
+  const ticks=group.getObjectByName('Checkpoint edge ticks');
+  assert.ok(loops instanceof T.Mesh&&loops.geometry.attributes.position.count===19*9*4);
+  assert.ok(ticks instanceof T.Mesh&&ticks.geometry.attributes.position.count===(17*2+2*4)*4);
+  assert.deepEqual(markers.filter(m=>m.sectorEnd!==null).map(m=>[m.index,m.sectorEnd]),[[7,1],[14,2]]);
 });
 test('Wiper speed, continuous OFF parking and phase interpolation across wrap',()=>{
   const m=new WiperMotor();m.cycle();for(let i=0;i<60;i++)m.tick(dt);
