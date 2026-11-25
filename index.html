@@ -31,7 +31,23 @@
       </div>
       <aside id="lap-panel" aria-label="Session timing">
         <button id="lap-summary" aria-expanded="false" aria-controls="lap-details" type="button"><span id="lap-state">Start line</span><b id="lap-current">—</b><span aria-hidden="true">⌄</span></button>
-        <div id="lap-details" hidden><dl><dt>Completed</dt><dd id="lap-count">0</dd><dt>Progress</dt><dd id="lap-progress">0%</dd><dt>Last lap</dt><dd id="lap-last">—</dd><dt>Session best</dt><dd id="lap-best">—</dd></dl><ol id="lap-history"></ol><button id="reset-timer" type="button">Reset timer</button></div>
+        <div id="lap-sectors" aria-label="Sector timing">
+          <div id="sector-banner" hidden></div>
+          <div class="sector-grid">
+            <div class="sector-cell" data-sector="0" data-state="pending"><div class="sector-head"><span>S1</span><i class="sector-tag" aria-hidden="true"></i></div><strong class="sector-time">—</strong><small class="sector-delta"></small></div>
+            <div class="sector-cell" data-sector="1" data-state="pending"><div class="sector-head"><span>S2</span><i class="sector-tag" aria-hidden="true"></i></div><strong class="sector-time">—</strong><small class="sector-delta"></small></div>
+            <div class="sector-cell" data-sector="2" data-state="pending"><div class="sector-head"><span>S3</span><i class="sector-tag" aria-hidden="true"></i></div><strong class="sector-time">—</strong><small class="sector-delta"></small></div>
+          </div>
+        </div>
+        <div id="lap-details" hidden>
+          <dl><dt>Completed</dt><dd id="lap-count">0</dd><dt>Progress</dt><dd id="lap-progress">0%</dd><dt>Last lap</dt><dd id="lap-last">—</dd><dt>Best lap</dt><dd id="lap-best">—</dd><dt>Theoretical best</dt><dd id="lap-theo">—</dd></dl>
+          <div id="sector-records" aria-label="Sector records">
+            <div class="sector-table-row head"><span>Sectors</span><span>S1</span><span>S2</span><span>S3</span></div>
+            <div class="sector-table-row"><span>Best</span><span id="best-s1">—</span><span id="best-s2">—</span><span id="best-s3">—</span></div>
+            <div class="sector-table-row"><span>Best lap</span><span id="bestlap-s1">—</span><span id="bestlap-s2">—</span><span id="bestlap-s3">—</span></div>
+          </div>
+          <ol id="lap-history"></ol><button id="reset-timer" type="button">Reset timer</button>
+        </div>
       </aside>
       <pre id="debug-panel" hidden></pre>
       <canvas id="minimap" width="216" height="202" aria-label="Circuit overview and vehicle position"></canvas>

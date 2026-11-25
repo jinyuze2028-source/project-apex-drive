@@ -3,41 +3,269 @@ import {courseLength,lineDistance,nearestStation,roadHalfWidth,sampleAt,stations
 
 export const startDistance=lineDistance;
 const gates=Array.from({length:20},(_,i)=>sampleAt(startDistance+courseLength*i/20));
+export const checkpointGates=gates.slice(1);
 const nodeCount=stations.length-1,spacing=courseLength/nodeCount;
+export const SECTOR_LAYOUT_ID='g7-g14-v1';
+export const sectorBoundaryIndices=[7,14] as const;
+export const lastLapHoldSeconds=3;
+
+export type SectorIndex=0|1|2;
+export type SectorNumbers=[number,number,number];
+export type SectorTuple=[number|null,number|null,number|null];
+export type SectorRating='pending'|'baseline'|'purple'|'green'|'equal'|'yellow'|'invalid';
+export type SectorRefKind='bestLap'|'bestSector'|null;
+export type LapHistoryEntry={lap:number;seconds:number;sectors?:SectorNumbers};
+export type StoredLapRecords={
+  count:number;
+  best:number|null;
+  history:LapHistoryEntry[];
+  sectorLayout?:string;
+  bestSectors?:SectorTuple;
+  bestLapSectors?:SectorNumbers|null;
+};
+export type SectorDisplay={
+  mode:'waiting'|'current'|'last-lap'|'invalid';
+  lap:number|null;
+  activeSector:SectorIndex|null;
+  currentSectorTime:number|null;
+  sectors:SectorTuple;
+  ratings:[SectorRating,SectorRating,SectorRating];
+  deltas:SectorTuple;
+  refKinds:[SectorRefKind,SectorRefKind,SectorRefKind];
+};
+
 export function lapTime(seconds:number|null){
   if(seconds===null)return '—';
   const ms=Math.round(seconds*1000);
   return [Math.floor(ms/60000),Math.floor(ms/1000)%60].map(n=>String(n).padStart(2,'0')).join(':')+'.'+String(ms%1000).padStart(3,'0');
 }
+export function sectorTime(seconds:number|null){
+  if(seconds===null)return '—';
+  const ms=Math.round(seconds*1000);
+  const mins=Math.floor(ms/60000),secs=Math.floor(ms/1000)%60,frac=String(ms%1000).padStart(3,'0');
+  return mins>0?`${mins}:${String(secs).padStart(2,'0')}.${frac}`:`${secs}.${frac}`;
+}
+export function sectorDelta(delta:number|null){
+  if(delta===null)return '';
+  const ms=Math.round(delta*1000);
+  if(ms===0)return '0.000';
+  return (ms>0?'+':'-')+(Math.abs(ms)/1000).toFixed(3);
+}
+
+const isPositive=(v:unknown):v is number=>typeof v==='number'&&Number.isFinite(v)&&v>0;
+function parseSectorNumbers(raw:unknown,expectedSum?:number):SectorNumbers|null{
+  if(!Array.isArray(raw)||raw.length!==3||!raw.every(isPositive))return null;
+  if(expectedSum!==undefined&&Math.abs(raw[0]+raw[1]+raw[2]-expectedSum)>.05)return null;
+  return [raw[0],raw[1],raw[2]];
+}
+
+type LastLapHold={
+  lap:number;
+  seconds:number;
+  sectors:SectorNumbers;
+  ratings:[SectorRating,SectorRating,SectorRating];
+  deltas:SectorTuple;
+  refKinds:[SectorRefKind,SectorRefKind,SectorRefKind];
+  until:number;
+};
 
 export class LapTiming {
   count=0;
   best:number|null=null;
   last:number|null=null;
   progress=0;
-  readonly history:Array<{lap:number;seconds:number}>=[];
+  readonly history:LapHistoryEntry[]=[];
   status:'waiting'|'running'|'invalid'='waiting';
   reason='';
+  sectors:SectorTuple=[null,null,null];
+  sectorRatings:[SectorRating,SectorRating,SectorRating]=['pending','pending','pending'];
+  sectorDeltas:SectorTuple=[null,null,null];
+  sectorRefKinds:[SectorRefKind,SectorRefKind,SectorRefKind]=[null,null,null];
+  bestSectors:SectorTuple=[null,null,null];
+  bestLapSectors:SectorNumbers|null=null;
+  lastLapSectors:SectorNumbers|null=null;
   private node=-1;
   private previous=new Vector3();
   private initialized=false;
   private elapsed=0;
   private began=0;
+  private sectorBegan=0;
+  private sectorIndex:SectorIndex=0;
   private nextGate=1;
   private distance=0;
   private peak=0;
   private arc=0;
+  private lastLapHold:LastLapHold|null=null;
+
   get current(){return this.status==='running'?this.elapsed-this.began:null;}
-  records(){return {count:this.count,best:this.best,history:this.history.slice()};}
-  restore(data:ReturnType<LapTiming['records']>){
-    if(!data||!Number.isSafeInteger(data.count)||data.count<1||typeof data.best!=='number'||!(data.best>0)||!Array.isArray(data.history))return;
-    const history=data.history.filter(l=>l&&Number.isSafeInteger(l.lap)&&l.lap>0&&l.lap<=data.count&&Number.isFinite(l.seconds)&&l.seconds>0).slice(0,6);
-    this.count=data.count;this.best=data.best;this.last=history[0]?.seconds ?? null;
-    this.history.splice(0,this.history.length,...history);
+  get currentSector():SectorIndex{return this.sectorIndex;}
+  get currentSectorTime(){return this.status==='running'?this.elapsed-this.sectorBegan:null;}
+  get theoreticalBest(){
+    const [a,b,c]=this.bestSectors;
+    return a!==null&&b!==null&&c!==null?a+b+c:null;
   }
-  cancel(){this.status='waiting';this.reason='';this.node=-1;this.initialized=false;this.progress=0;}
-  reset(){this.cancel();this.elapsed=0;this.count=0;this.best=this.last=null;this.history.length=0;}
-  private invalidate(reason:string){if(this.status==='running'){this.status='invalid';this.reason=reason;}}
+  get showingLastLap(){
+    return this.status==='running'&&this.lastLapHold!==null&&this.elapsed<this.lastLapHold.until;
+  }
+
+  sectorDisplay():SectorDisplay{
+    if(this.showingLastLap&&this.lastLapHold){
+      return {
+        mode:'last-lap',
+        lap:this.lastLapHold.lap,
+        activeSector:null,
+        currentSectorTime:null,
+        sectors:[...this.lastLapHold.sectors],
+        ratings:[...this.lastLapHold.ratings],
+        deltas:[...this.lastLapHold.deltas],
+        refKinds:[...this.lastLapHold.refKinds],
+      };
+    }
+    if(this.status==='invalid'){
+      return {
+        mode:'invalid',
+        lap:this.count+1,
+        activeSector:null,
+        currentSectorTime:null,
+        sectors:[...this.sectors],
+        ratings:['invalid','invalid','invalid'],
+        deltas:[null,null,null],
+        refKinds:[null,null,null],
+      };
+    }
+    if(this.status==='running'){
+      return {
+        mode:'current',
+        lap:this.count+1,
+        activeSector:this.sectorIndex,
+        currentSectorTime:this.currentSectorTime,
+        sectors:[...this.sectors],
+        ratings:[...this.sectorRatings],
+        deltas:[...this.sectorDeltas],
+        refKinds:[...this.sectorRefKinds],
+      };
+    }
+    return {
+      mode:'waiting',
+      lap:null,
+      activeSector:null,
+      currentSectorTime:null,
+      sectors:[null,null,null],
+      ratings:['pending','pending','pending'],
+      deltas:[null,null,null],
+      refKinds:[null,null,null],
+    };
+  }
+
+  records():StoredLapRecords{
+    return {
+      count:this.count,
+      best:this.best,
+      history:this.history.map(entry=>entry.sectors
+        ?{lap:entry.lap,seconds:entry.seconds,sectors:[...entry.sectors] as SectorNumbers}
+        :{lap:entry.lap,seconds:entry.seconds}),
+      sectorLayout:SECTOR_LAYOUT_ID,
+      bestSectors:[...this.bestSectors],
+      bestLapSectors:this.bestLapSectors?[...this.bestLapSectors]:null,
+    };
+  }
+
+  restore(data:unknown){
+    if(!data||typeof data!=='object')return;
+    const raw=data as Partial<StoredLapRecords>;
+    if(!Number.isSafeInteger(raw.count)||(raw.count as number)<1||!isPositive(raw.best)||!Array.isArray(raw.history))return;
+    const layoutMatches=raw.sectorLayout===SECTOR_LAYOUT_ID;
+    const history:LapHistoryEntry[]=[];
+    for(const item of raw.history){
+      if(!item||typeof item!=='object')continue;
+      const l=item as Partial<LapHistoryEntry>;
+      if(!Number.isSafeInteger(l.lap)||(l.lap as number)<1||(l.lap as number)>(raw.count as number)||!isPositive(l.seconds))continue;
+      const entry:LapHistoryEntry={lap:l.lap as number,seconds:l.seconds};
+      if(layoutMatches){
+        const parsed=parseSectorNumbers(l.sectors,l.seconds);
+        if(parsed)entry.sectors=parsed;
+      }
+      history.push(entry);
+      if(history.length>=6)break;
+    }
+    this.count=raw.count as number;
+    this.best=raw.best;
+    this.last=history[0]?.seconds ?? null;
+    this.history.splice(0,this.history.length,...history);
+    this.bestSectors=[null,null,null];
+    this.bestLapSectors=null;
+    this.lastLapSectors=history[0]?.sectors?[...history[0].sectors]:null;
+    if(!layoutMatches)return;
+    if(Array.isArray(raw.bestSectors)&&raw.bestSectors.length===3){
+      const next:SectorTuple=[null,null,null];
+      let valid=true;
+      for(let k=0;k<3;k++){
+        const v=raw.bestSectors[k];
+        if(v===null)next[k]=null;
+        else if(isPositive(v))next[k]=v;
+        else {valid=false;break;}
+      }
+      if(valid)this.bestSectors=next;
+    }
+    const bestLapSectors=parseSectorNumbers(raw.bestLapSectors,this.best);
+    if(bestLapSectors){
+      const consistent=bestLapSectors.every((v,k)=>this.bestSectors[k]===null||v>=this.bestSectors[k]!-1e-3);
+      if(consistent){
+        this.bestLapSectors=bestLapSectors;
+        for(let k=0;k<3;k++){
+          if(this.bestSectors[k]===null)this.bestSectors[k]=bestLapSectors[k];
+        }
+      }
+    }
+  }
+
+  private clearCurrentSectors(){
+    this.sectorIndex=0;
+    this.sectors=[null,null,null];
+    this.sectorRatings=['pending','pending','pending'];
+    this.sectorDeltas=[null,null,null];
+    this.sectorRefKinds=[null,null,null];
+  }
+
+  cancel(){
+    this.status='waiting';this.reason='';this.node=-1;this.initialized=false;this.progress=0;
+    this.lastLapHold=null;
+    this.clearCurrentSectors();
+  }
+
+  reset(){
+    this.cancel();
+    this.elapsed=0;this.began=0;this.sectorBegan=0;
+    this.count=0;this.best=this.last=null;this.history.length=0;
+    this.bestSectors=[null,null,null];
+    this.bestLapSectors=null;
+    this.lastLapSectors=null;
+  }
+
+  private invalidate(reason:string){
+    if(this.status==='running'){
+      this.status='invalid';
+      this.reason=reason;
+      this.lastLapHold=null;
+      this.sectorRatings=['invalid','invalid','invalid'];
+      this.sectorDeltas=[null,null,null];
+      this.sectorRefKinds=[null,null,null];
+    }
+  }
+
+  private evaluateSector(index:SectorIndex,seconds:number):{rating:SectorRating;delta:number|null;refKind:SectorRefKind}{
+    const bestSector=this.bestSectors[index];
+    const bestLapSector=this.bestLapSectors?.[index]??null;
+    const ref=bestLapSector??bestSector;
+    if(ref===null)return {rating:'baseline',delta:null,refKind:null};
+    const refKind:SectorRefKind=bestLapSector!==null?'bestLap':'bestSector';
+    const delta=seconds-ref;
+    if(bestSector!==null&&seconds<bestSector-1e-6)return {rating:'purple',delta,refKind};
+    if(bestLapSector!==null&&seconds<bestLapSector-1e-6)return {rating:'green',delta,refKind};
+    if(Math.abs(delta)<.0005)return {rating:'equal',delta:0,refKind};
+    return {rating:'yellow',delta,refKind};
+  }
+
   private locate(p:Vector3){
     if(this.node<0)this.node=nearestStation(p.x,p.z).index;
     let best=Infinity,found=this.node;
@@ -51,6 +279,7 @@ export class LapTiming {
     const deviation=Math.hypot(dx-forward.x*along,dz-forward.z*along);
     return {arc:found*spacing+along,onRoad:deviation<roadHalfWidth+.60&&Math.abs(p.y-q.y-along*forward.y)<1.65};
   }
+
   step(p:Vector3,heading:Vector3,signedSpeed:number,dt:number){
     const old=this.previous;
     if(this.initialized&&old.distanceToSquared(p)>4){this.invalidate('Position jump');this.node=-1;this.initialized=false;}
@@ -75,13 +304,61 @@ export class LapTiming {
         if(!forward){this.invalidate('Wrong direction');continue;}
         if(i===0){
           const when=this.elapsed-dt+dt*(-a/(b-a));
-          if(this.status==='running'&&this.nextGate===gates.length&&this.distance>courseLength-5){
-            const seconds=when-this.began;this.count++;this.last=seconds;this.best=this.best===null?seconds:Math.min(this.best,seconds);
-            this.history.unshift({lap:this.count,seconds});if(this.history.length>6)this.history.pop();
+          if(this.status==='running'&&this.nextGate===gates.length&&this.distance>courseLength-5
+             &&this.sectors[0]!==null&&this.sectors[1]!==null){
+            const seconds=when-this.began;
+            const s1=this.sectors[0],s2=this.sectors[1],s3=when-this.sectorBegan;
+            const lapSectors:SectorNumbers=[s1,s2,s3];
+            const s3Eval=this.evaluateSector(2,s3);
+            const lapRatings:[SectorRating,SectorRating,SectorRating]=[this.sectorRatings[0],this.sectorRatings[1],s3Eval.rating];
+            const lapDeltas:SectorTuple=[this.sectorDeltas[0],this.sectorDeltas[1],s3Eval.delta];
+            const lapRefKinds:[SectorRefKind,SectorRefKind,SectorRefKind]=[this.sectorRefKinds[0],this.sectorRefKinds[1],s3Eval.refKind];
+
+            this.count++;
+            this.last=seconds;
+            this.lastLapSectors=[...lapSectors];
+            if(this.best===null||seconds<this.best){
+              this.best=seconds;
+              this.bestLapSectors=[...lapSectors];
+            }
+            for(let k=0;k<3;k++){
+              const prev=this.bestSectors[k];
+              if(prev===null||lapSectors[k]<prev)this.bestSectors[k]=lapSectors[k];
+            }
+            this.history.unshift({lap:this.count,seconds,sectors:[...lapSectors]});
+            if(this.history.length>6)this.history.pop();
+            this.lastLapHold={
+              lap:this.count,seconds,sectors:[...lapSectors],
+              ratings:lapRatings,deltas:lapDeltas,refKinds:lapRefKinds,
+              until:when+lastLapHoldSeconds,
+            };
+          }else{
+            this.lastLapHold=null;
           }
-          this.began=when;this.distance=this.peak=0;this.nextGate=1;this.status='running';this.reason='';
+          this.began=when;
+          this.sectorBegan=when;
+          this.distance=this.peak=0;
+          this.nextGate=1;
+          this.status='running';
+          this.reason='';
+          this.clearCurrentSectors();
         }else if(this.status==='running'){
-          if(i===this.nextGate)this.nextGate++;else this.invalidate('Checkpoint missed');
+          if(i===this.nextGate){
+            const boundary=sectorBoundaryIndices.indexOf(i as (typeof sectorBoundaryIndices)[number]);
+            if(boundary!==-1){
+              const when=this.elapsed-dt+dt*(-a/(b-a));
+              const duration=when-this.sectorBegan;
+              const evaluated=this.evaluateSector(boundary as SectorIndex,duration);
+              this.sectors[boundary]=duration;
+              this.sectorRatings[boundary]=evaluated.rating;
+              this.sectorDeltas[boundary]=evaluated.delta;
+              this.sectorRefKinds[boundary]=evaluated.refKind;
+              this.sectorBegan=when;
+              this.sectorIndex=(boundary+1) as SectorIndex;
+              this.lastLapHold=null;
+            }
+            this.nextGate++;
+          }else this.invalidate('Checkpoint missed');
         }
       }
     }

@@ -1,6 +1,6 @@
 import {ChaseCamera,type ChasePreset} from './chase-camera.ts';
 import {installStartingGantry} from './start-gantry.ts';
-import {LapTiming,lapTime} from './lap-timing.ts';
+import {LapTiming,lapTime,sectorDelta,sectorTime,type SectorRating} from './lap-timing.ts';
 import {RoadWear} from './road-wear.ts';
 import {TireMarks} from './tire-marks.ts';
 import './style.css';
@@ -551,18 +551,67 @@ async function start() {
   timingVisible.addEventListener('change',()=>{timerPanel.hidden=!timingVisible.checked;try{localStorage.setItem('apex.timing',timerPanel.hidden?'hidden':'shown');}catch{}});
   summary.addEventListener('click',()=>{timerDetails.hidden=!timerDetails.hidden;summary.setAttribute('aria-expanded',String(!timerDetails.hidden));sinceUI=1;stage.focus({preventScroll:true});});
   byId('reset-timer').addEventListener('click',()=>{laps.reset();saveRecords(currentVehicle,laps);sinceUI=1;stage.focus({preventScroll:true});});
-  const timerFields=Object.fromEntries(['state','current','count','progress','last','best','history'].map(k=>[k,byId('lap-'+k)]));
+  const timerFields=Object.fromEntries(['state','current','count','progress','last','best','theo','history'].map(k=>[k,byId('lap-'+k)]));
+  const sectorBanner=byId('sector-banner');
+  const sectorCells=[0,1,2].map(i=>{
+    const el=timerPanel.querySelector<HTMLElement>(`.sector-cell[data-sector="${i}"]`)!;
+    return {
+      el,
+      tag:el.querySelector<HTMLElement>('.sector-tag')!,
+      time:el.querySelector<HTMLElement>('.sector-time')!,
+      delta:el.querySelector<HTMLElement>('.sector-delta')!,
+    };
+  });
+  const bestSectorFields=[1,2,3].map(n=>byId('best-s'+n));
+  const bestLapSectorFields=[1,2,3].map(n=>byId('bestlap-s'+n));
+  const sectorTags:Record<SectorRating|'active',string>={
+    pending:'',baseline:'SET',active:'●',purple:'PB',green:'▲',equal:'=',yellow:'▼',invalid:'×',
+  };
   let historyShown='';
   function updateLaps(){
     if(timerPanel.hidden)return;
     const signalText=gantry.signal.phase==='countdown'?gantry.signal.count+' / 5 red lamps':gantry.signal.phase==='go'?'Lights out':'';
     setText(byId('start-light-state'),signalText);
     (byId('test-start-lights') as HTMLButtonElement).disabled=paused||gantry.signal.phase==='countdown';
+    if(timerPanel.dataset.status!==laps.status)timerPanel.dataset.status=laps.status;
     setText(timerFields.state,laps.status==='running'?'Lap '+(laps.count+1):laps.status==='invalid'?laps.reason:'Cross start line');
     setText(timerFields.current,lapTime(laps.current));
+    const display=laps.sectorDisplay();
+    const usesBestSectorRef=display.refKinds.some(k=>k==='bestSector');
+    let bannerText='',bannerKind='';
+    if(display.mode==='last-lap'){
+      bannerKind='last-lap';
+      bannerText='LAST LAP'+(display.lap!==null?' · L'+display.lap:'')+(usesBestSectorRef?' · REF BEST SEC':'');
+    }else if(display.mode==='invalid'){
+      bannerKind='invalid';
+      bannerText='INVALID · NOT RECORDED';
+    }else if(usesBestSectorRef){
+      bannerKind='ref';
+      bannerText='DELTA VS BEST SEC';
+    }
+    sectorBanner.hidden=!bannerText;
+    if(bannerText){
+      if(sectorBanner.dataset.kind!==bannerKind)sectorBanner.dataset.kind=bannerKind;
+      setText(sectorBanner,bannerText);
+    }
+    for(let i=0;i<3;i++){
+      const cell=sectorCells[i];
+      const isActive=display.mode==='current'&&display.activeSector===i&&display.sectors[i]===null;
+      const state:SectorRating|'active'=isActive?'active':display.ratings[i];
+      if(cell.el.dataset.state!==state)cell.el.dataset.state=state;
+      setText(cell.tag,sectorTags[state]);
+      const value=isActive?display.currentSectorTime:display.sectors[i];
+      setText(cell.time,sectorTime(value));
+      setText(cell.delta,isActive||display.mode==='invalid'?'':sectorDelta(display.deltas[i]));
+    }
     if(timerDetails.hidden)return;
     setText(timerFields.count,String(laps.count));setText(timerFields.progress,Math.floor(laps.progress*100)+'%');
     setText(timerFields.last,lapTime(laps.last));setText(timerFields.best,lapTime(laps.best));
+    setText(timerFields.theo,lapTime(laps.theoreticalBest));
+    for(let i=0;i<3;i++){
+      setText(bestSectorFields[i],sectorTime(laps.bestSectors[i]));
+      setText(bestLapSectorFields[i],sectorTime(laps.bestLapSectors?laps.bestLapSectors[i]:null));
+    }
     const history=laps.history.map(l=>'Lap '+l.lap+'   '+lapTime(l.seconds)+(l.seconds===laps.best?'   BEST':'')).join('\n');
     if(history!==historyShown){historyShown=history;timerFields.history.replaceChildren(...(history?history.split('\n'):[]).map(text=>{const li=document.createElement('li');li.textContent=text;return li;}));}
   }

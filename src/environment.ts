@@ -2,6 +2,7 @@ import * as T from 'three';
 import {makeAsphalt} from './asphalt.ts';
 import {wearHalfWidth,type RoadWear} from './road-wear.ts';
 import {addSponsorBoards} from './sponsor-boards.ts';
+import {placeCheckpointMarkers} from './checkpoint-markers.ts';
 import {placeTurnSigns} from './turn-signs.ts';
 import {plantForest} from './forest.ts';
 import {alpineGround} from './alpine-ground.ts';
@@ -325,6 +326,7 @@ export async function buildEnvironment(scene: T.Scene, world: RAPIER.World, rend
   }
 
   placeTurnSigns(scene);
+  placeCheckpointMarkers(scene,wear);
   return (eye:T.Vector3)=>{
     for(const m of vergeCells){const sphere=m.boundingSphere!;m.visible=eye.distanceToSquared(sphere.center)<(110+sphere.radius)**2;}
     for(const r of railCells){r.beam.visible=r.center.distanceToSquared(eye)<175*175;r.far.visible=!r.beam.visible;}
