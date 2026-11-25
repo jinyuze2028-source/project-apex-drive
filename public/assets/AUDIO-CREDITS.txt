@@ -1,0 +1,12 @@
+Project Apex Drive — Engine audio sources
+
+The shipping audio worklet generates the engine, intake, driveline, turbo, starter and mechanical effects in real time. It contains original synthesis code and does not carry third-party recordings.
+
+Reference only:
+- Ferrari F40, Sounding Sweet / Sweet SFX. Commercial recording library and demo.
+  https://www.sweetsfx.com/product/ferrari-f40/
+  https://www.sweetsfx.com/licensing/
+- Ferrari F40 – engine and exhaust sound, Car Trends, via Wikimedia Commons. The file specifies CC BY 3.0 and has an outstanding source licence review.
+  https://commons.wikimedia.org/wiki/File:Ferrari_F40_-_engine_and_exhaust_sound_(YouTube_yfF5gtwxBzY).opus
+
+The synthesizer is an approximation of the road car and has not been calibrated to isolated microphones or dyno recordings.

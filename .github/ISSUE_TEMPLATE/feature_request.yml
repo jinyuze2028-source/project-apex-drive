@@ -1,0 +1,19 @@
+name: Feature request
+description: Propose a change to the simulator
+labels: [enhancement]
+body:
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed feature and why it is needed
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Vehicles and systems affected
+  - type: textarea
+    id: sources
+    attributes:
+      label: References or screenshots
+      description: Include the source and license if proposing a third-party asset.

@@ -1,0 +1,12 @@
+Ferrari F40 — Black Snow (2024)
+https://sketchfab.com/3d-models/ferrari-f40-52a66c41cfcd4f999fb1b1c49bf24d70
+Creative Commons Attribution 4.0 International
+https://creativecommons.org/licenses/by/4.0/
+Source GLB distributed by SceneView: https://sceneview.github.io/models/platforms/ferrari_f40.glb
+Changes for Project Apex Drive: coordinate/scale conversion, wheel and lamp separation, material refit, replacement steering wheel, functional instrument cluster, gear gate and ignition. No endorsement implied. Ferrari and F40 names and marks belong to their respective owners. Model licence is separate from brand rights.
+Round six separates and animates the original wiper arm, blade linkage and rubber. The windscreen surface supplies the sweep profile and perimeter seal.
+
+Round seven adds original bevelled F40 lettering to the central rear grille as a custom fitting. The factory wing embossing in RM Sotheby’s reference photographs informed the lettering.
+https://rmsothebys.com/auctions/az23/lots/r0043-1992-ferrari-f40/
+
+Round 8 — Sectioned the two existing front cover and trim meshes for their rear hinges. New halogen lenses, headlight wells, shifter assembly and Apex wheel emblem are original game geometry. The LIFT rocker is a custom interaction. Model reference: https://www.audrainautomuseum.org/shining-bright/1991-ferrari-f40

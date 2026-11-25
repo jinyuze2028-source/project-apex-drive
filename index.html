@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111419">
+  <link rel="icon" href="data:,">
+  <title>Project Apex Drive</title>
+  <meta name="description" content="Choose the Ferrari F40 or Nissan GT-R R35 Rally Edition and drive the Alpine Proving Ground.">
+</head>
+<body>
+  <div class="shell">
+    <header class="masthead">
+      <div class="brand"><span class="mark" aria-hidden="true"><i></i><i></i></span><div><small>PROJECT</small><strong>APEX<span> DRIVE</span></strong></div></div>
+      <div class="header-track"><span class="header-divider" aria-hidden="true"></span><div><span>Alpine Proving Ground</span><small>FREE DRIVE</small></div></div>
+      <div class="header-actions">
+        <button class="quiet" id="open-garage" type="button">Garage</button>
+        <button class="quiet" data-open-help type="button">Help</button>
+        <button class="quiet" id="settings" type="button">Settings</button>
+        <button class="start" id="ignition" type="button" disabled><span class="power" aria-hidden="true">⏻</span><span id="ignition-text">Start engine</span><kbd id="ignition-shortcut">I</kbd></button>
+      </div>
+    </header>
+    <main class="stage" id="stage" aria-label="Driving simulator" tabindex="0">
+      <div id="scene"></div>
+      <div id="control-notification" role="status" aria-live="polite" hidden></div>
+      <div class="stage-toolbar">
+        <div class="course-label"><span class="course-dot"></span><div><strong id="sector">Main straight</strong><small id="distance">0.00 KM DRIVEN</small></div></div>
+        <div class="view-group" aria-label="Camera">
+          <button type="button" data-camera="cockpit">Cockpit</button><button type="button" class="selected" data-camera="chase">Chase</button><button type="button" data-camera="hood">Hood</button><button type="button" data-camera="orbit" title="Drag to orbit · Scroll to zoom">Orbit</button>
+        </div>
+      </div>
+      <aside id="lap-panel" aria-label="Session timing">
+        <button id="lap-summary" aria-expanded="false" aria-controls="lap-details" type="button"><span id="lap-state">Start line</span><b id="lap-current">—</b><span aria-hidden="true">⌄</span></button>
+        <div id="lap-details" hidden><dl><dt>Completed</dt><dd id="lap-count">0</dd><dt>Progress</dt><dd id="lap-progress">0%</dd><dt>Last lap</dt><dd id="lap-last">—</dd><dt>Session best</dt><dd id="lap-best">—</dd></dl><ol id="lap-history"></ol><button id="reset-timer" type="button">Reset timer</button></div>
+      </aside>
+      <pre id="debug-panel" hidden></pre>
+      <canvas id="minimap" width="216" height="202" aria-label="Circuit overview and vehicle position"></canvas>
+      <aside id="telemetry" class="telemetry" aria-label="Vehicle instruments">
+        <div class="instrument-top"><span>ENGINE SPEED</span><span><strong id="rpm">0</strong> RPM</span></div>
+        <div class="tach-track"><div id="tach"></div></div>
+        <div class="tach-scale"><span>0</span><span>2</span><span>4</span><span>6</span><span>7</span></div>
+        <div class="readings"><div class="speed"><strong id="speed">0</strong><span>KM/H</span></div><div class="gear"><strong id="gear">N</strong><span id="gear-mode">AUTO</span></div></div>
+      </aside>
+      <div class="car-status"><i id="engine-dot"></i><span id="status">IGNITION OFF</span><span class="signal" id="signal"></span></div>
+      <div class="load" id="loading" role="status">
+        <div class="spinner" aria-hidden="true"></div><strong>Preparing the proving ground</strong><small id="load-detail">Loading track and vehicle</small>
+      </div>
+      <div id="pause-layer" class="pause-layer" hidden>
+        <div class="pause-card">
+          <div class="status-line">FREE DRIVE</div>
+          <h1>Paused</h1>
+          <div class="pause-actions"><button class="start" id="resume" type="button">Resume driving</button><button class="quiet" id="restart" type="button">Restart session</button><button class="quiet" data-open-help type="button">Help / Tutorial</button><button class="quiet" id="pause-garage" type="button">Return to garage</button></div>
+        </div>
+      </div>
+      <section class="garage" id="garage" aria-label="Vehicle garage" hidden>
+        <div class="garage-panel">
+          <p class="garage-kicker" id="garage-trim"></p>
+          <h1 id="garage-name"></h1>
+          <p class="garage-description" id="garage-description"></p>
+          <dl class="garage-specs" id="garage-specs"></dl>
+          <p class="garage-error" id="garage-error" role="status" hidden></p>
+          <div class="garage-selection" id="garage-selection" hidden>
+            <button class="quiet" id="garage-prev" aria-label="Previous car" type="button">←</button>
+            <div id="garage-cars" role="group" aria-label="Cars"></div>
+            <button class="quiet" id="garage-next" aria-label="Next car" type="button">→</button>
+          </div>
+          <div class="garage-actions">
+            <button class="start" id="garage-drive" type="button">Drive</button>
+            <button class="quiet" id="garage-select" type="button">Select Car</button>
+            <button class="quiet" data-open-help type="button">Help</button><button class="quiet" id="garage-settings" type="button">Settings</button>
+          </div>
+          <a id="garage-credits" class="garage-credits" target="_blank" rel="noreferrer">Vehicle asset credits</a>
+        </div>
+        <div class="garage-view" aria-label="Showroom camera">
+          <p>Drag to orbit · Scroll to zoom</p>
+          <div class="view-group" id="showroom-views">
+            <button data-showroom="front" type="button">Front</button><button data-showroom="side" type="button">Side</button>
+            <button data-showroom="rear" type="button">Rear</button><button data-showroom="cockpit" type="button">Cockpit</button>
+            <button data-showroom="wheel" type="button" hidden>Wheel</button>
+            <button data-showroom="reset" type="button">Reset view</button>
+          </div>
+          <div class="garage-preview">
+            <button class="quiet" id="garage-lights" type="button">Lights</button>
+            <button class="quiet" id="garage-special" type="button">Pop-up lights</button>
+            <button class="quiet" id="garage-audio" type="button">Preview engine</button>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer class="footer">
+      <div class="shortcut-strip" id="shortcut-strip" aria-label="Shortcuts">
+      <div class="keys" aria-label="Driving shortcuts">
+        <span><kbd>W A S D</kbd> Drive</span><span><kbd>Space</kbd> Handbrake</span><span><kbd>C</kbd> Camera</span><span><kbd>R</kbd> Reset</span><span><kbd>Esc</kbd> Pause</span>
+      </div>
+      <div class="vehicle-keys" id="vehicle-keys" aria-label="Vehicle shortcuts"></div>
+      </div>
+      <div class="footer-actions"><span id="start-light-state" role="status"></span><button id="test-start-lights" class="text-btn" type="button">Test start lights</button><span class="fps" id="fps">— FPS</span><button id="pause" class="text-btn" type="button">Pause</button><button id="controls" class="text-btn" type="button">More Controls</button></div>
+    </footer>
+  </div>
+  <dialog id="settings-dialog">
+    <form method="dialog" class="dialog-body">
+      <header><div><small>PROJECT APEX DRIVE</small><h2>Settings</h2></div><button class="text-btn close" value="close" aria-label="Close settings">×</button></header>
+      <label>Graphics quality <select id="quality"><option value="performance">Performance</option><option value="balanced" selected>Balanced</option><option value="high">High</option></select></label>
+      <label>Vehicle audio <input id="engine-volume" type="range" min="0" max="1" value=".72" step=".01"></label>
+      <label>Instrument backlight <input id="dial-lighting" type="range" min="0" max="1" value=".35" step=".05"></label>
+      <label>Mouse look sensitivity <input id="sensitivity" type="range" min="0.6" max="2" step="0.1" value="1"></label>
+      <label>Chase camera <select id="chase-camera"><option value="close">Close</option><option value="standard">Standard</option></select></label>
+      <label>Chassis motion in cockpit <input id="head-motion" type="range" min="0.35" max="1" step="0.05" value="0.85"></label>
+      <label>Show lap timing <input type="checkbox" checked id="show-timing"></label>
+      <label>Transmission mode <select id="transmission"><option value="auto">Automatic</option><option value="manual">Manual</option></select></label>
+      <label id="assist-row">Rally driving assists <select id="assist-mode"><option value="assisted">Grip</option><option value="sport" selected>Rally</option><option value="simulation">Simulation</option></select></label>
+      <label>Show Driver Arms <input type="checkbox" id="driver-arms"></label>
+      <label>Traction control <input type="checkbox" id="traction-setting"></label>
+      <label id="abs-row">ABS <input type="checkbox" id="abs-setting"></label>
+      <label>Control notifications <input type="checkbox" id="control-notifications" checked></label>
+      <label>Shortcut bar visibility <input type="checkbox" id="shortcut-visibility" checked></label>
+      <details id="keyboard-bindings">
+        <summary>Keyboard bindings</summary>
+        <div id="binding-fields"></div>
+        <p id="bindings-status" role="status"></p>
+        <button class="quiet" id="restore-bindings" type="button">Restore default bindings</button>
+      </details>
+      <small id="setting-note">Change transmission while stopped.</small>
+    </form>
+  </dialog>
+  <dialog id="controls-dialog">
+    <form method="dialog" class="dialog-body">
+      <header><div><small>PROJECT APEX DRIVE</small><h2>Driving controls</h2></div><button class="text-btn close" value="close" aria-label="Close controls">×</button></header>
+      <div id="controls-reference"></div>
+      <small class="license">Ferrari F40 and GT-R geometry by Black Snow, adapted under CC BY 4.0. <a href="./assets/F40-CREDITS.txt" target="_blank" rel="noreferrer">F40 credits</a> · <a href="./assets/R35-CREDITS.txt" target="_blank" rel="noreferrer">R35 credits</a> · <a href="./assets/driver/CREDITS.txt" target="_blank" rel="noreferrer">Driver hand credits</a>.</small>
+    </form>
+  </dialog>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

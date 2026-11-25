@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.netlify/
+.DS_Store
+.env
+.env.*
+!.env.example
+test-evidence/
+verification/
+/public/assets/f40-road.glb
+/public/assets/r35-rally.glb

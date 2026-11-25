@@ -1,0 +1,20 @@
+Nissan Skyline GTR r35 — Black Snow
+https://sketchfab.com/3d-models/nissan-skyline-gtr-r35-7b142ea3376e4811a326256c59bbc7a2
+CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+Public GLB distribution with embedded source and author attribution:
+https://hotwheelsaua.com/models/gtr.glb
+
+Project Apex Drive adapts the vehicle to its own physics and materials, strips the
+source wheels and several unused interior/mechanical components, and adds rally wheels,
+lighting, a fictional livery, roll cage and functioning instruments and controls.
+The Nissan and GT-R names and marks identify the vehicle; no endorsement is implied.
+
+Reference specifications and photography: Nissan GT-R press kit.
+https://usa.nissannews.com/en-US/releases/2024-nissan-gt-r-press-kit
+Tarmac rally reference: STILLEN's 2009 R35 GT-R build.
+https://blog.stillen.com/tag/nissan/page/11/
+The fictional game package is an original adaptation with approximate calibration.
+The 18-inch APEX Tarmac R tread, sidewall, wheels, brakes and replacement
+surface textures are original to Project Apex Drive. Tarmac tyre design reference:
+https://www.michelinmotorsport.com/en/motorsport/tyres/michelin-pilot-sport-r-version-gt
+The V6 audio is original procedural synthesis with no imported audio samples.

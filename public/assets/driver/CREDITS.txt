@@ -1,0 +1,4 @@
+The left and right hand meshes and joint weights come from the generic-hand profile in the Immersive Web Working Group WebXR Input Profiles assets package.
+https://github.com/immersive-web/webxr-input-profiles/tree/main/packages/assets/profiles/generic-hand
+https://github.com/immersive-web/webxr-input-profiles/tree/main/packages/assets
+Distributed under the accompanying MIT licence. This game poses the finger joints, adds glove surfaces and drives tailored sleeves with two-link arm IK. No WebXR hardware or network request is required.

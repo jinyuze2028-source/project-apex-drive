@@ -1,0 +1,29 @@
+{
+  "name": "projectapexdrive-web",
+  "version": "0.1.0",
+  "description": "Project Apex Drive browser driving simulator",
+  "scripts": {
+    "test": "node --experimental-strip-types --test scripts/*.test.mjs",
+    "dev": "vite --host 127.0.0.1 --port 4177 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test:handling": "node scripts/handling.mjs",
+    "test:browser": "node scripts/browser-endurance.mjs",
+    "assets:fetch": "node scripts/fetch-vehicle-assets.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "type": "module",
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.21.0",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/three": "^0.187.0",
+    "playwright-core": "^1.65.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  },
+  "private": true
+}

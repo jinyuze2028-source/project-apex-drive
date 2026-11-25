@@ -1,0 +1,17 @@
+Conifer twig photography — Fir Tree 01, Rico Cilliers and Rob Tuytel, Poly Haven, CC0.
+https://polyhaven.com/a/fir_tree_01
+The 1K twig colour and alpha were combined locally as fir-sprays.webp. The game builds its own three-dimensional whorls of folded, textured boughs. The original high-poly Fir Tree 01 mesh is not bundled.
+
+Pine Sapling Small — Rico Cilliers and Rob Tuytel, Poly Haven, CC0.
+https://polyhaven.com/a/pine_sapling_small
+pine-close.glb and pine-mid.glb adapt the original to metre-normalized, instanced levels of detail. They share the bark and needle textures in trackside-pine.glb.
+
+Gravel Floor — Matterfield and Jenelle van Heerden, Poly Haven, CC0.
+https://polyhaven.com/a/gravel_floor
+The three gravel JPEGs provide local colour, surface normals and roughness.
+
+CC0 licence information: https://polyhaven.com/license
+
+Round 8 — Clean Asphalt by Dimitrios Savva (Poly Haven, CC0), including the corresponding 1K roughness image.
+https://polyhaven.com/a/clean_asphalt
+Starting structure and sponsor boards are original game geometry and artwork. The five-red-lights sequence takes inspiration from the conventional standing start.
