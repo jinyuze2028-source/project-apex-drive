@@ -1,6 +1,6 @@
 # Releases and rollback
 
-Contributors work on branches such as `feature/new-vehicle`, `feature/rally-track`, `fix/mirror-lag` and `fix/brake-light`. Merge reviewed contributions into `develop`, then promote them to `main` through an owner-reviewed pull request. In GitHub, check **Files changed**, review the tests and wait for **Build and test**. Approve via **Review changes**, then merge when GitHub's rules permit it. A reviewer cannot approve their own pull request.
+Contributors work on branches such as `feature/new-vehicle`, `feature/rally-track`, `fix/mirror-lag` and `fix/brake-light`. Merge reviewed contributions into `develop`, then promote them to `main` through an owner-reviewed pull request. In GitHub, check **Files changed**, review the tests and wait for **Build and test**. Approve via **Review changes**, then merge when GitHub's rules permit it. A reviewer cannot approve their own pull request. With a single code owner, have another contributor open the promotion pull request and push its final revision so the owner can review it.
 
 Production is served at [Project Apex Drive](https://project-apex-drive-955.netlify.app/). The maintainer builds the approved main revision, verifies the candidate and publishes that build to the existing Netlify site. The public GitHub Actions workflow has no production credentials or deployment job. Netlify is currently managed by its existing explicit CLI deployment, independently of the public repository.
 
