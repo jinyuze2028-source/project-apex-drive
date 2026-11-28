@@ -106,7 +106,7 @@ export class RallyVisual implements VehicleVisual {
     this.group.name='Nissan GT-R R35 Rally';
   }
 
-  async load(){
+  async load(exteriorOnly=false){
     const {scene:body}=await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(asset('r35-rally.glb'));
     body.rotation.y=Math.PI;body.position.y=this.trim.position.y;this.group.add(body,this.trim);
     this.group.updateMatrixWorld(true);
@@ -171,7 +171,7 @@ export class RallyVisual implements VehicleVisual {
       const decal=part(this.group,new DecalGeometry(door,projection,orient,dimensions),rallyLivery(side<0));
       decal.castShadow=false;decal.renderOrder=1;
     }
-    for(const original of mirrors){
+    for(const original of exteriorOnly?[]:mirrors){
       const material=original.material as T.Material;
       const mesh=original.clone();
       const geometry=mesh.geometry.clone(),positions=geometry.getAttribute('position');
@@ -192,7 +192,7 @@ export class RallyVisual implements VehicleVisual {
     this.head.add(nose.LED);
     fitRearBadges(this.group,rearPanels);
     fitFuelDoor(this.group,paintedPanels);
-    this.cabin=buildRallyCabin(this.trim,body,this.hitTargets);
+    if(!exteriorOnly)this.cabin=buildRallyCabin(this.trim,body,this.hitTargets);
     batchRallyShell(body,this.group);
     const hubNames=['HubFL','HubFR','HubRL','HubRR'];
     const buildWheel=rallyWheelSet(this.spec.radius);
@@ -204,11 +204,14 @@ export class RallyVisual implements VehicleVisual {
     });
     const lamps=buildRallyTrim(this.trim,carbon);
     this.popups=new AuxiliaryLamps(nose.core);this.signals=lamps.signals;
-    this.steering=this.cabin.steering;
-    await this.driver.load(this.cabin.column);
-    this.buildWipers();
+    if(!exteriorOnly){
+      this.steering=this.cabin.steering;
+      await this.driver.load(this.cabin.column);
+      this.buildWipers();
+    }
     if(doors.length!==2||mirrors.length!==3||!this.head.size||!this.tail.size)throw Error('Incomplete R35 vehicle model');
   }
+
 
   private buildWipers(){
     const rubber=rallyMat(0x161719,.84);

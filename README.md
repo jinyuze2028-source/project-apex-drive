@@ -1,6 +1,6 @@
 # Project Apex Drive
 
-An open-source 3D racing and driving simulator built with Three.js, TypeScript and Rapier. Drive a Ferrari F40 or the fictional Nissan GT-R R35 Rally Edition on the 5.014 km Alpine Proving Ground.
+An open-source 3D racing and driving simulator built with Three.js, TypeScript and Rapier. Drive a Ferrari F40 or the fictional Nissan GT-R R35 Rally Edition on the 5.014 km Alpine Proving Ground circuit or the 6.554 km Pineglass Run 2.0 gravel stage.
 
 **[Play the live demo](https://project-apex-drive-955.netlify.app/)** · [Contribute](CONTRIBUTING.md) · [Asset credits](THIRD_PARTY_NOTICES.md)
 
@@ -13,6 +13,8 @@ An open-source 3D racing and driving simulator built with Three.js, TypeScript a
 | ![Vehicle showroom](docs/screenshots/showroom.jpg) | ![Alpine mountain circuit](docs/screenshots/circuit.jpg) |
 
 ## Features
+
+- [Pineglass Run 2.0](docs/PINEGLASS_RUN.md) has three timed sectors, a flying finish, gravel dust, vehicle recovery, and a free observer camera (F8). Alpine retains its circuit lap timing.
 
 - Both cars have interactive cockpit instruments, animated controls, real-time mirrors and synthesized engine audio. Cockpit, chase, hood and orbit cameras are available.
 - The F40 models rear-wheel drive and a five-speed gearbox. The GT-R models all-wheel drive and a six-speed gearbox. Both support manual and automatic operation.

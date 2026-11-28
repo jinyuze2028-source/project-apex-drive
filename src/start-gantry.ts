@@ -25,10 +25,20 @@ export class StartSignal {
     }else if(this.elapsed>=2)this.reset();
   }
 
+  synchronize(remainingMs:number){
+    if(remainingMs>0){
+      this.phase='countdown';
+      this.count=Math.min(5,Math.max(0,6-Math.ceil(remainingMs/1000)));
+    }else if(remainingMs>-2000){
+      this.phase='go';
+      this.count=0;
+    }else this.reset();
+  }
+
   reset(){this.phase='idle';this.count=0;this.elapsed=0;}
 }
 
-export function installStartingGantry(scene:T.Scene){
+export function installStartingGantry(scene:T.Object3D){
   const tower=new T.Group();
   tower.name='Apex start gantry';tower.position.copy(startLine.p);
   tower.rotation.y=Math.atan2(-startLine.forward.x,-startLine.forward.z);
