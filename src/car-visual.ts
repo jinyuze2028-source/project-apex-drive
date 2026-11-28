@@ -14,7 +14,7 @@ export type {Switch};
 export class CarVisual {
   readonly group=new T.Group();
   readonly eye=new T.Vector3(-.333,.990,.090);
-  readonly hood=new T.Vector3(0,.733,-1.39);
+  readonly hood=new T.Vector3(0,1.232,-.85);
   readonly hitTargets:T.Mesh[]=[];
   readonly wheels:Array<{pivot:T.Group;roller:T.Group}>=[];
   readonly mirrors=new Mirrors();
@@ -30,7 +30,7 @@ export class CarVisual {
   private ray=new T.Raycaster();
   private spec:Vehicle['spec'];
   constructor(spec:Vehicle['spec']){this.spec=spec;this.eye.y-=spec.bodyOrigin;this.hood.y-=spec.bodyOrigin;}
-  async load(){
+  async load(exteriorOnly=false){
     const {scene:body}=await new GLTFLoader().loadAsync(asset('f40-road.glb'));
     const {spec}=this;body.position.y=-spec.bodyOrigin;this.group.add(body);
     const red=new T.MeshPhysicalMaterial({color:0xc52118,metalness:.035,roughness:.31,clearcoat:.95,clearcoatRoughness:.19,ior:1.49});
@@ -48,7 +48,7 @@ export class CarVisual {
       const wheel=/^(tire|rim|disc)(FL|FR|RL|RR)/.exec(mesh.name);
       // Hidden from the seated eye by the bodywork, retained in exterior views.
       if(wheel||['part1','part5','part6','part22','part26','part40','signalL','signalR'].includes(mesh.name))mesh.layers.set(1);
-      if(mesh.name.startsWith('mirror')){this.mirrors.attach(mesh);continue;}
+      if(mesh.name.startsWith('mirror')){if(!exteriorOnly)this.mirrors.attach(mesh);continue;}
       if(wheel){
         const idx=wheelIds.indexOf(wheel[2]),w=spec.wheels[idx];
         mesh.geometry.translate(-w.x,-.330,-w.z);this.wheels[idx].roller.add(mesh);
@@ -69,10 +69,13 @@ export class CarVisual {
       mesh.castShadow=mesh.material!==glass;mesh.receiveShadow=true;
     }
     if(this.wheels.some(w=>w.roller.children.length<3)||!this.brake||!this.head)throw Error('Incomplete F40 vehicle asset');
-    fitRearBadge(body);this.poseWiper=buildWiper(body);
-    this.cabin=buildCabin(body,this.hitTargets);this.steering=this.cabin.steering;
-    await this.driver.load(this.steering.parent!);
-    this.popups=new PopupHeadlights(body);
+    fitRearBadge(body);
+    if(!exteriorOnly){
+      this.poseWiper=buildWiper(body);
+      this.cabin=buildCabin(body,this.hitTargets);this.steering=this.cabin.steering;
+      await this.driver.load(this.steering.parent!);
+    }
+    this.popups=new PopupHeadlights(body,!exteriorOnly);
   }
   set instrumentBrightness(value:number){this.cabin.instruments.brightness=value;}
   hit(camera:T.Camera,ndc:T.Vector2){
